@@ -1,13 +1,16 @@
 import numpy as np
 import cv2
 import random
+import time
+
 
 class Shape:
     def __init__(self, w, h):
-        self.x1 = random.randint(0, w)
-        self.x2 = random.randint(0, w)
-        self.y1 = random.randint(0, h)
-        self.y2 = random.randint(0, h)
+        self.w1 = random.randint(5, w // 2)
+        self.h1 = random.randint(5, h // 2)
+
+        self.x1 = random.randint(0, w-self.w1)
+        self.y1 = random.randint(0, h-self.h1)
 
         self.w = w
         self.h = h
@@ -18,10 +21,10 @@ class Shape:
 
         # Apply shape to image
         mask = np.zeros(current_image.shape[:2], dtype="uint8")
-        cv2.rectangle(mask, (self.x1, self.y1), (self.x2, self.y2), 255, -1)
+        cv2.rectangle(mask, (self.x1, self.y1), (self.x1+self.w1, self.y1+self.h1), 255, -1)
 
         color = tuple(map(int, cv2.mean(target_image, mask)[:3]))
-        cv2.rectangle(current_image, (self.x1, self.y1), (self.x2, self.y2), color, -1)
+        cv2.rectangle(current_image, (self.x1, self.y1), (self.x1+self.w1, self.y1+self.h1), color, -1)
 
         # find fitness with color difference
         color_difference = np.sum(np.abs(target_image - current_image))
@@ -36,10 +39,12 @@ class Shape:
 
         for _ in range(num_children):
             child = Shape(self.w, self.h)
+
             child.x1 = self.x1 + random.randint(-10, 10) * self.mutation_rate
-            child.x2 = self.x2 + random.randint(-10, 10) * self.mutation_rate
             child.y1 = self.y1 + random.randint(-10, 10) * self.mutation_rate
-            child.y2 = self.y2 + random.randint(-10, 10) * self.mutation_rate
+
+            child.w1 = self.w1 + random.randint(-10, 10) * self.mutation_rate
+            child.h1 = self.h1 + random.randint(-10, 10) * self.mutation_rate
 
             children.append(child)
 
@@ -72,15 +77,29 @@ class Evolution:
         best_fit = fitness.index(max(fitness))
         return self.population[best_fit].image
 
-    
-image = cv2.imread('image.jpg')
-average_color = tuple(map(int, cv2.mean(image)))[:3]
-base_image = np.full(shape=image.shape, fill_value=average_color, dtype=np.uint8)
+if __name__ == "__main__":
+    scale = 7
+    shapes = 5000
+    startTime = time.time()
 
-for i in range(500):
-    object = Evolution(base_image, image, 20)
-    base_image = object.evolve(5)
-    print(i)
+    image = cv2.imread('image.jpg')
 
-cv2.imshow('Final result', base_image)
-cv2.waitKey(0)
+    image = cv2.resize(image, (int(image.shape[1]/scale), int(image.shape[0]/scale)))
+
+    average_color = tuple(map(int, cv2.mean(image)))[:3]
+    base_image = np.full(shape=image.shape, fill_value=average_color, dtype=np.uint8)
+
+    for i in range(1, shapes+1):
+        object = Evolution(base_image, image, 20)
+        base_image = object.evolve(5)
+        print(i)
+        if i % 1000 == 0:
+            print(i)
+            if i > 0:
+                delay = time.time() - startTime
+                print(f"{delay * (shapes / 1000 - 1)} more seconds")
+        
+
+    cv2.imwrite('finished.jpg', base_image)
+    cv2.imshow('Final result', base_image)
+    cv2.waitKey(0)
